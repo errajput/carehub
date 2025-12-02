@@ -236,8 +236,7 @@ export default function DoctorsPage() {
 
                     {doctor.fees !== undefined && (
                       <div className="flex items-center gap-2 text-sm">
-                        <DollarSign className="w-4 h-4 text-success" />
-                        <span>${doctor.fees} per visit</span>
+                        ₹<span>{doctor.fees} per visit</span>
                       </div>
                     )}
                   </div>
