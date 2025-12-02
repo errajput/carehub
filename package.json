@@ -9,7 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "daisyui": "^5.5.5",
     "lucide-react": "^0.555.0",
     "next": "16.0.6",
     "react": "19.2.0",
@@ -20,6 +19,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "daisyui": "^5.5.5",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
     "tailwindcss": "^4",
