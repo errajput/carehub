@@ -116,6 +116,12 @@ class ApiService {
     return this.request("/auth");
   }
 
+  async deleteAccount(): Promise<{ message: string }> {
+    return this.request("/auth/delete-account", {
+      method: "DELETE",
+    });
+  }
+
   //  DOCTOR ENDPOINTS
 
   async getDoctors(params?: DoctorSearchParams): Promise<DoctorListResponse> {
