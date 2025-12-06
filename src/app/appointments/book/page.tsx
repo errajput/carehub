@@ -28,7 +28,7 @@ export default function BookAppointmentPage() {
   const [booking, setBooking] = useState(false);
   const [error, setError] = useState<string>("");
 
-  // =====================  FETCH DOCTORS  =====================
+  // FETCH DOCTORS
   useEffect(() => {
     async function fetchDoctors() {
       try {
@@ -43,7 +43,7 @@ export default function BookAppointmentPage() {
     fetchDoctors();
   }, []);
 
-  // =====================  FETCH SLOTS  =====================
+  //   FETCH SLOTS
   useEffect(() => {
     if (!selectedDoctor) return;
 
@@ -68,7 +68,7 @@ export default function BookAppointmentPage() {
     fetchSlots();
   }, [selectedDoctor]);
 
-  // =====================  BOOK APPOINTMENT  =====================
+  //  BOOK APPOINTMENT
   async function handleSubmit() {
     if (!selectedDoctor || !selectedSlot) {
       setError("Please select a doctor and a time slot.");

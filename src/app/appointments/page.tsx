@@ -8,10 +8,11 @@ import {
   XCircle,
   CheckCircle,
   AlertCircle,
+  Edit,
 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { api } from "@/src/lib/api";
-import type { Appointment } from "@/src/types";
+import type { Appointment, AvailabilitySlot } from "@/src/types";
 
 type Filter = "all" | "upcoming" | "past" | "cancelled";
 
@@ -24,6 +25,16 @@ export default function AppointmentsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+
+  // Reschedule state
+  const [rescheduleAppointment, setRescheduleAppointment] =
+    useState<Appointment | null>(null);
+  const [availableSlots, setAvailableSlots] = useState<AvailabilitySlot[]>([]);
+  const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(
+    null
+  );
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -76,6 +87,79 @@ export default function AppointmentsPage() {
           setTimeout(() => setError(""), 3000);
         }
       };
+    }
+  };
+
+  // Open reschedule modal
+  const handleRescheduleClick = async (appointment: Appointment) => {
+    setRescheduleAppointment(appointment);
+    setSelectedSlot(null);
+    setLoadingSlots(true);
+
+    const modal = document.getElementById(
+      "reschedule_modal"
+    ) as HTMLDialogElement;
+    modal?.showModal();
+
+    try {
+      // Get doctor ID
+      const doctorId =
+        typeof appointment.doctor === "object"
+          ? appointment.doctor._id
+          : appointment.doctor;
+
+      // Fetch available slots for the doctor
+      const slots = await api.getAvailability(doctorId);
+
+      // Filter out past slots and the current appointment slot
+      const now = new Date();
+      const futureSlots = slots.filter((slot) => new Date(slot.start) > now);
+
+      setAvailableSlots(futureSlots);
+    } catch (err) {
+      setError("Failed to load available slots");
+      console.error(err);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  // Confirm reschedule
+  const handleConfirmReschedule = async () => {
+    if (!rescheduleAppointment || !selectedSlot) return;
+
+    setRescheduling(true);
+
+    try {
+      await api.rescheduleAppointment(
+        rescheduleAppointment._id,
+        selectedSlot.start,
+        selectedSlot.end
+      );
+
+      setSuccess("Appointment rescheduled successfully!");
+      setTimeout(() => setSuccess(""), 3000);
+
+      // Close modal
+      const modal = document.getElementById(
+        "reschedule_modal"
+      ) as HTMLDialogElement;
+      modal?.close();
+
+      // Reset state
+      setRescheduleAppointment(null);
+      setSelectedSlot(null);
+      setAvailableSlots([]);
+
+      // Reload appointments
+      loadAppointments();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to reschedule appointment"
+      );
+      setTimeout(() => setError(""), 3000);
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -310,16 +394,26 @@ export default function AppointmentsPage() {
                   {/* Actions */}
                   <div className="flex flex-col gap-2 lg:items-end">
                     {appointment.status !== "cancelled" &&
-                      appointment.status !== "completed" && (
-                        <button
-                          className="btn btn-error btn-sm"
-                          onClick={() =>
-                            handleCancelAppointment(appointment._id)
-                          }
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Cancel
-                        </button>
+                      appointment.status !== "completed" &&
+                      new Date(appointment.start) > new Date() && (
+                        <>
+                          <button
+                            className="btn btn-info btn-sm"
+                            onClick={() => handleRescheduleClick(appointment)}
+                          >
+                            <Edit className="w-4 h-4" />
+                            Reschedule
+                          </button>
+                          <button
+                            className="btn btn-error btn-sm"
+                            onClick={() =>
+                              handleCancelAppointment(appointment._id)
+                            }
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Cancel
+                          </button>
+                        </>
                       )}
                   </div>
                 </div>
@@ -366,6 +460,123 @@ export default function AppointmentsPage() {
         </div>
         <form method="dialog" className="modal-backdrop">
           <button>close</button>
+        </form>
+      </dialog>
+
+      {/* Reschedule Modal */}
+      <dialog id="reschedule_modal" className="modal">
+        <div className="modal-box max-w-2xl">
+          <h3 className="font-bold text-2xl mb-4">Reschedule Appointment</h3>
+
+          {rescheduleAppointment && (
+            <div className="bg-base-200 p-4 rounded-lg mb-6">
+              <h4 className="font-semibold mb-2">Current Appointment:</h4>
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="w-4 h-4" />
+                <span>
+                  {new Date(rescheduleAppointment.start).toLocaleDateString(
+                    "en-US",
+                    {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    }
+                  )}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm mt-1">
+                <Clock className="w-4 h-4" />
+                <span>
+                  {new Date(rescheduleAppointment.start).toLocaleTimeString(
+                    [],
+                    {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="mb-4">
+            <h4 className="font-semibold mb-3">Select New Time Slot:</h4>
+
+            {loadingSlots ? (
+              <div className="flex justify-center py-8">
+                <span className="loading loading-spinner loading-lg"></span>
+              </div>
+            ) : availableSlots.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
+                {availableSlots.map((slot) => (
+                  <button
+                    key={slot._id}
+                    onClick={() => setSelectedSlot(slot)}
+                    className={`btn btn-sm ${
+                      selectedSlot?._id === slot._id
+                        ? "btn-primary"
+                        : "btn-outline"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs">
+                        {new Date(slot.start).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                      <span className="font-bold">
+                        {new Date(slot.start).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="alert alert-warning">
+                <AlertCircle className="w-5 h-5" />
+                <span>No available slots found for this doctor</span>
+              </div>
+            )}
+          </div>
+
+          <div className="modal-action">
+            <form method="dialog">
+              <button
+                className="btn btn-ghost mr-2"
+                onClick={() => {
+                  setRescheduleAppointment(null);
+                  setSelectedSlot(null);
+                  setAvailableSlots([]);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`btn btn-primary ${rescheduling ? "loading" : ""}`}
+                onClick={handleConfirmReschedule}
+                disabled={!selectedSlot || rescheduling}
+              >
+                {rescheduling ? "Rescheduling..." : "Confirm Reschedule"}
+              </button>
+            </form>
+          </div>
+        </div>
+        <form method="dialog" className="modal-backdrop">
+          <button
+            onClick={() => {
+              setRescheduleAppointment(null);
+              setSelectedSlot(null);
+              setAvailableSlots([]);
+            }}
+          >
+            close
+          </button>
         </form>
       </dialog>
     </div>
