@@ -13,12 +13,16 @@ export const Navbar: React.FC = () => {
   const isActive = (path: string) => pathname === path;
 
   const navLinks = isAuthenticated
-    ? [
-        { href: "/dashboard", label: "Dashboard" },
-        { href: "/doctors", label: "Doctors" },
-        { href: "/appointments", label: "Appointments" },
-        { href: "/profile", label: "Profile" },
-      ]
+    ? user?.role === "doctor"
+      ? [
+          { href: "/doctor/dashboard", label: "Dashboard" },
+          { href: "/appointments", label: "My Appointments" },
+        ]
+      : [
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/doctors", label: "Doctors" },
+          { href: "/appointments", label: "Appointments" },
+        ]
     : [
         { href: "/", label: "Home" },
         { href: "/doctors", label: "Find Doctors" },
